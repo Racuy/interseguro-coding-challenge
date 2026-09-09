@@ -8,6 +8,7 @@
 node_modules/
 npm-debug.log*
 coverage/
+dist/
 
 # Environment files — never commit real secrets
 .env

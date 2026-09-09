@@ -18,15 +18,25 @@ services:
       retries: 3
       start_period: 5s
     depends_on:
-      - node-api
+      node-api:
+        condition: service_healthy
     networks:
       - interseguro-net
 
   node-api:
-    image: node:20-alpine
+    build:
+      context: ./node-api
+      dockerfile: Dockerfile
     container_name: node-api
     restart: unless-stopped
-    command: ["sh", "-c", "echo 'node-api not implemented yet' && sleep infinity"]
+    env_file:
+      - node-api/.env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     networks:
       - interseguro-net
 
