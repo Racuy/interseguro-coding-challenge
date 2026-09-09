@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -18,12 +19,12 @@ import (
 
 // fake usecase, records the context it was called with
 type stubUsecase struct {
-	result  domain.MatrixStats
+	result  domain.MatrixProcessResult
 	err     error
 	lastCtx context.Context
 }
 
-func (s *stubUsecase) Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixStats, error) {
+func (s *stubUsecase) Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixProcessResult, error) {
 	s.lastCtx = ctx
 	return s.result, s.err
 }
@@ -35,8 +36,14 @@ func newTestApp(handler *MatrixHandler) *fiber.App {
 }
 
 func TestMatrixHandler_Process(t *testing.T) {
-	t.Run("valid request returns 200 with the stats", func(t *testing.T) {
-		want := domain.MatrixStats{Max: 4, Min: 1, Average: 2.5, Sum: 10, IsDiagonal: false}
+	t.Run("valid request returns 200 with the result", func(t *testing.T) {
+		want := domain.MatrixProcessResult{
+			Original: domain.Matrix{{1, 2}, {3, 4}},
+			Rotated:  domain.Matrix{{3, 1}, {4, 2}},
+			Q:        domain.Matrix{{-1, 0}, {0, -1}},
+			R:        domain.Matrix{{-3, -1}, {0, -2}},
+			Stats:    domain.MatrixStats{Max: 4, Min: 1, Average: 2.5, Sum: 10, IsDiagonal: false, DiagonalMatrices: []string{}},
+		}
 		app := newTestApp(NewMatrixHandler(&stubUsecase{result: want}))
 
 		body, _ := json.Marshal(domain.MatrixRequest{Matrix: [][]float64{{1, 2}, {3, 4}}})
@@ -51,17 +58,17 @@ func TestMatrixHandler_Process(t *testing.T) {
 			t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
 		}
 
-		var got domain.MatrixStats
+		var got domain.MatrixProcessResult
 		if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
-		if got != want {
+		if !reflect.DeepEqual(got, want) {
 			t.Errorf("got %+v, want %+v", got, want)
 		}
 	})
 
 	t.Run("Authorization header is propagated to the use case via context", func(t *testing.T) {
-		usecase := &stubUsecase{result: domain.MatrixStats{}}
+		usecase := &stubUsecase{}
 		app := newTestApp(NewMatrixHandler(usecase))
 
 		body, _ := json.Marshal(domain.MatrixRequest{Matrix: [][]float64{{1, 2}, {3, 4}}})
@@ -80,7 +87,7 @@ func TestMatrixHandler_Process(t *testing.T) {
 	})
 
 	t.Run("context passed to the use case carries a deadline", func(t *testing.T) {
-		usecase := &stubUsecase{result: domain.MatrixStats{}}
+		usecase := &stubUsecase{}
 		app := newTestApp(NewMatrixHandler(usecase))
 
 		body, _ := json.Marshal(domain.MatrixRequest{Matrix: [][]float64{{1, 2}, {3, 4}}})
@@ -102,7 +109,7 @@ func TestMatrixHandler_Process(t *testing.T) {
 	})
 
 	t.Run("missing Authorization header means no token in context", func(t *testing.T) {
-		usecase := &stubUsecase{result: domain.MatrixStats{}}
+		usecase := &stubUsecase{}
 		app := newTestApp(NewMatrixHandler(usecase))
 
 		body, _ := json.Marshal(domain.MatrixRequest{Matrix: [][]float64{{1, 2}, {3, 4}}})

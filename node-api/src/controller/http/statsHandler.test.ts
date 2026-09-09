@@ -39,10 +39,10 @@ test('valid request returns 200 with the stats', async () => {
   )
   server.close()
   assert.equal(status, 200)
-  assert.deepEqual(body, { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true })
+  assert.deepEqual(body, { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true, diagonalMatrices: ['q', 'r'] })
 })
 
-test('non-diagonal matrices return isDiagonal false', async () => {
+test('non-diagonal matrices return isDiagonal false and an empty diagonalMatrices', async () => {
   const { server, url } = startTestApp()
   const { status, body } = await post(
     url,
@@ -51,7 +51,20 @@ test('non-diagonal matrices return isDiagonal false', async () => {
   )
   server.close()
   assert.equal(status, 200)
-  assert.deepEqual(body, { max: 8, min: 1, average: 4.5, sum: 36, isDiagonal: false })
+  assert.deepEqual(body, { max: 8, min: 1, average: 4.5, sum: 36, isDiagonal: false, diagonalMatrices: [] })
+})
+
+test('only one of q/r diagonal is reported by name, and values come back unrounded', async () => {
+  const { server, url } = startTestApp()
+  // hand-checked: 6 values total (2 from q, 4 from r), sum = 1.23456+2+3+0+0+4 = 10.23456, average = 10.23456/6 = 1.70576
+  const { status, body } = await post(
+    url,
+    JSON.stringify({ q: [[1.23456, 2]], r: [[3, 0], [0, 4]] }),
+    { Authorization: `Bearer ${token()}` },
+  )
+  server.close()
+  assert.equal(status, 200)
+  assert.deepEqual(body, { max: 4, min: 0, average: 1.70576, sum: 10.23456, isDiagonal: true, diagonalMatrices: ['r'] })
 })
 
 test('missing token returns 401', async () => {

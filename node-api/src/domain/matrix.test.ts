@@ -46,6 +46,12 @@ test('Matrix.validate rejects empty, no rows, empty row, jagged', () => {
   assert.throws(() => new Matrix([[1, 2], [3]]).validate(), InvalidMatrixError)
 })
 
+test('Matrix.validate rejects non-finite values', () => {
+  assert.throws(() => new Matrix([[1, NaN]]).validate(), InvalidMatrixError)
+  assert.throws(() => new Matrix([[1, Infinity]]).validate(), InvalidMatrixError)
+  assert.throws(() => new Matrix([[1, -Infinity]]).validate(), InvalidMatrixError)
+})
+
 test('Matrix.validate accepts square and rectangular matrices', () => {
   assert.doesNotThrow(() => new Matrix([[1, 2], [3, 4]]).validate())
   assert.doesNotThrow(() => new Matrix([[1, 2, 3], [4, 5, 6]]).validate())
@@ -67,19 +73,37 @@ test('Matrix.isDiagonal false for non-square or non-diagonal matrices', () => {
   assert.equal(new Matrix([[1, 2, 3], [4, 5, 6]]).isDiagonal(), false)
 })
 
-test('Matrix.isDiagonal tolerates float noise under epsilon', () => {
-  assert.equal(new Matrix([[1, 1e-10], [1e-10, 1]]).isDiagonal(), true)
+test('Matrix.isDiagonal tolerance is exactly 1e-10', () => {
+  // at or under 1e-10: tolerated, counts as diagonal
+  assert.equal(new Matrix([[1, 1e-10], [0, 1]]).isDiagonal(), true)
+  assert.equal(new Matrix([[1, 0], [1e-11, 1]]).isDiagonal(), true)
+  // just over 1e-10: not tolerated, not diagonal
+  assert.equal(new Matrix([[1, 1.1e-10], [0, 1]]).isDiagonal(), false)
   assert.equal(new Matrix([[1, 1e-8], [0, 1]]).isDiagonal(), false)
 })
 
 test('QRFactorization.stats matches hand-computed values, no diagonal', () => {
   const qr = new QRFactorization([[1, 2], [3, 4]], [[5, 6], [7, 8]])
-  assert.deepEqual(qr.stats(), { max: 8, min: 1, average: 4.5, sum: 36, isDiagonal: false })
+  assert.deepEqual(qr.stats(), { max: 8, min: 1, average: 4.5, sum: 36, isDiagonal: false, diagonalMatrices: [] })
 })
 
 test('QRFactorization.stats matches hand-computed values, both diagonal', () => {
   const qr = new QRFactorization([[1, 0], [0, 1]], [[2, 0], [0, 3]])
-  assert.deepEqual(qr.stats(), { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true })
+  assert.deepEqual(qr.stats(), { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true, diagonalMatrices: ['q', 'r'] })
+})
+
+test('QRFactorization.stats does not round, full float64 precision passes through', () => {
+  const qr = new QRFactorization([[1.234567891234, 0]], [[0]])
+  const stats = qr.stats()
+  assert.equal(stats.max, 1.234567891234)
+  assert.equal(stats.sum, 1.234567891234)
+})
+
+test('QRFactorization.diagonalMatrices reports which one, or both, or neither', () => {
+  assert.deepEqual(new QRFactorization([[1, 2], [3, 4]], [[5, 6], [7, 8]]).diagonalMatrices(), [])
+  assert.deepEqual(new QRFactorization([[1, 2], [3, 4]], [[5, 0], [0, 6]]).diagonalMatrices(), ['r'])
+  assert.deepEqual(new QRFactorization([[1, 0], [0, 1]], [[5, 6], [7, 8]]).diagonalMatrices(), ['q'])
+  assert.deepEqual(new QRFactorization([[1, 0], [0, 1]], [[5, 0], [0, 6]]).diagonalMatrices(), ['q', 'r'])
 })
 
 test('QRFactorization.isDiagonal true if only one of Q or R is diagonal', () => {
@@ -127,4 +151,5 @@ test('regression: 500x500 matrices do not overflow the call stack', () => {
   assert.equal(stats.max, 2)
   assert.equal(stats.min, 1)
   assert.equal(Number.isFinite(stats.sum), true)
+  assert.deepEqual(stats.diagonalMatrices, [])
 })

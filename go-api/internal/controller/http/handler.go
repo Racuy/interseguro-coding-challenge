@@ -24,7 +24,7 @@ func NewMatrixHandler(usecase application.MatrixUsecase) *MatrixHandler {
 	return &MatrixHandler{usecase: usecase}
 }
 
-// POST /api/v1/matrix/process: {matrix:[[...]]} -> {max,min,average,sum,isDiagonal}
+// POST /api/v1/matrix/process: {matrix:[[...]]} -> {original,rotated,q,r,stats:{max,min,average,sum,isDiagonal,diagonalMatrices}}
 func (h *MatrixHandler) Process(c *fiber.Ctx) error {
 	var req domain.MatrixRequest
 	if err := c.BodyParser(&req); err != nil {

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Matrix Ops</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <section id="login-view" class="view">
+    <form id="login-form" class="login-card">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Matrix Ops</span>
+      </div>
+      <h1>Iniciar sesión</h1>
+      <p class="subtitle">Rotación de matrices, factorización QR y estadísticas</p>
+
+      <label class="field">
+        <span>Usuario</span>
+        <input type="text" id="username" autocomplete="username" required />
+      </label>
+
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-block" id="login-btn">
+        <span class="btn-label">Ingresar</span>
+        <span class="spinner" hidden></span>
+      </button>
+
+      <p class="error-text" id="login-error" hidden></p>
+      <p class="hint">Demo de la prueba técnica &mdash; usuario <code>admin</code>, contraseña <code>qwerty</code></p>
+    </form>
+  </section>
+
+  <section id="app-view" class="view" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Matrix Ops</span>
+      </div>
+      <button type="button" class="btn btn-ghost" id="logout-btn">Cerrar sesión</button>
+    </header>
+
+    <main class="layout" id="layout">
+      <section class="panel input-panel">
+        <div class="panel-head">
+          <h2>Matriz de entrada</h2>
+          <p class="panel-sub">go-api rota esta matriz 90&deg; y calcula la factorización QR de la matriz <strong>original</strong> (no de la rotada); luego node-api calcula las estadísticas sobre Q y R</p>
+        </div>
+
+        <div class="dims">
+          <label class="field field-inline">
+            <span>Filas</span>
+            <input type="number" id="rows-input" min="1" max="12" value="3" />
+          </label>
+          <label class="field field-inline">
+            <span>Columnas</span>
+            <input type="number" id="cols-input" min="1" max="12" value="3" />
+          </label>
+        </div>
+
+        <div id="matrix-grid" class="matrix-grid"></div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-subtle" id="random-btn">Aleatorio</button>
+          <button type="button" class="btn btn-subtle" id="clear-btn">Limpiar</button>
+          <button type="button" class="btn btn-primary" id="submit-btn">
+            <span class="btn-label">Obtener resultados</span>
+            <span class="spinner" hidden></span>
+          </button>
+        </div>
+
+        <p class="error-text" id="submit-error" hidden></p>
+      </section>
+
+      <section class="panel results-panel" id="results-panel">
+        <div class="panel-head">
+          <h2>Resultados</h2>
+          <p class="panel-sub">go-api rotó la matriz 90&deg; y calculó la factorización QR de la matriz <strong>original</strong>; node-api calculó las estadísticas sobre Q y R</p>
+        </div>
+
+        <div class="results-body">
+          <div class="results-main">
+            <div class="result-block">
+              <h3>Matriz rotada</h3>
+              <div id="rotated-grid" class="matrix-grid readonly compact"></div>
+            </div>
+
+            <div class="qr-row">
+              <div class="result-block">
+                <h3>Q</h3>
+                <div id="q-grid" class="matrix-grid readonly small"></div>
+              </div>
+              <div class="result-block">
+                <h3>R</h3>
+                <div id="r-grid" class="matrix-grid readonly small"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="results-side result-block">
+            <h3>Estadísticas</h3>
+            <div class="stats-grid">
+              <div class="stat-tile">
+                <span class="stat-label">Máximo</span>
+                <span class="stat-value" id="stat-max">&mdash;</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-label">Mínimo</span>
+                <span class="stat-value" id="stat-min">&mdash;</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-label">Promedio</span>
+                <span class="stat-value" id="stat-avg">&mdash;</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-label">Suma total</span>
+                <span class="stat-value" id="stat-sum">&mdash;</span>
+              </div>
+              <div class="stat-tile stat-tile-wide">
+                <span class="stat-label">Matriz diagonal</span>
+                <span class="badge" id="stat-diagonal">&mdash;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

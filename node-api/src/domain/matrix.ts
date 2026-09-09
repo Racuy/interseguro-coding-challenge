@@ -1,12 +1,12 @@
 // matrix types and pure math, no framework code here
 
 export const MAX_MATRIX_DIMENSION = 500
-const DIAGONAL_EPSILON = 1e-9
+const DIAGONAL_EPSILON = 1e-10
 
-// empty or non-rectangular matrix
+// empty, non-rectangular, or containing a non-finite value
 export class InvalidMatrixError extends Error {
   constructor() {
-    super('matrix must be non-empty and rectangular')
+    super('matrix must be non-empty, rectangular, and contain only finite values')
     this.name = 'InvalidMatrixError'
   }
 }
@@ -25,6 +25,7 @@ export interface MatrixStats {
   average: number
   sum: number
   isDiagonal: boolean
+  diagonalMatrices: Array<'q' | 'r'>
 }
 
 // wraps a 2D array of numbers
@@ -35,7 +36,7 @@ export class Matrix {
     this.data = data
   }
 
-  // checks non-empty, rectangular, and within the size limit
+  // checks non-empty, rectangular, within the size limit, and every value finite
   validate(): void {
     if (!Array.isArray(this.data) || this.data.length === 0 || !Array.isArray(this.data[0]) || this.data[0].length === 0) {
       throw new InvalidMatrixError()
@@ -46,6 +47,9 @@ export class Matrix {
     const cols = this.data[0].length
     for (const row of this.data) {
       if (!Array.isArray(row) || row.length !== cols) throw new InvalidMatrixError()
+      for (const value of row) {
+        if (!Number.isFinite(value)) throw new InvalidMatrixError()
+      }
     }
   }
 
@@ -78,13 +82,20 @@ export class QRFactorization {
     this.r.validate()
   }
 
-  // true if either Q or R is a diagonal matrix
-  isDiagonal(): boolean {
-    return this.q.isDiagonal() || this.r.isDiagonal()
+  // which of q/r (if any) are diagonal matrices, tolerance 1e-10
+  diagonalMatrices(): Array<'q' | 'r'> {
+    const result: Array<'q' | 'r'> = []
+    if (this.q.isDiagonal()) result.push('q')
+    if (this.r.isDiagonal()) result.push('r')
+    return result
   }
 
-  // max, min, average, sum over every value in Q and R combined
-  // loop based on purpose, spread on 500k values blows V8's call stack
+  // true if either Q or R is a diagonal matrix
+  isDiagonal(): boolean {
+    return this.diagonalMatrices().length > 0
+  }
+
+  // max, min, average, sum over every value in Q and R combined, full precision, loop based since spread blows the call stack past 100k values
   stats(): MatrixStats {
     let max = -Infinity
     let min = Infinity
@@ -102,6 +113,14 @@ export class QRFactorization {
       }
     }
 
-    return { max, min, average: count === 0 ? 0 : sum / count, sum, isDiagonal: this.isDiagonal() }
+    const diagonal = this.diagonalMatrices()
+    return {
+      max,
+      min,
+      average: count === 0 ? 0 : sum / count,
+      sum,
+      isDiagonal: diagonal.length > 0,
+      diagonalMatrices: diagonal,
+    }
   }
 }

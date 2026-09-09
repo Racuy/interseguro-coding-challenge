@@ -6,12 +6,24 @@ import { InvalidMatrixError, MatrixTooLargeError, MAX_MATRIX_DIMENSION } from '.
 test('process returns stats for a valid request', () => {
   const usecase = createStatsUsecase()
   const stats = usecase.process({ q: [[1, 0], [0, 1]], r: [[2, 0], [0, 3]] })
-  assert.deepEqual(stats, { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true })
+  assert.deepEqual(stats, { max: 3, min: 0, average: 0.875, sum: 7, isDiagonal: true, diagonalMatrices: ['q', 'r'] })
+})
+
+test('process does not round, full float64 precision passes through', () => {
+  const usecase = createStatsUsecase()
+  const stats = usecase.process({ q: [[1.234567891234, 0], [0, 1]], r: [[2, 0], [0, 3]] })
+  assert.equal(stats.max, 3)
+  assert.equal(stats.sum, 1.234567891234 + 1 + 2 + 3)
 })
 
 test('process rejects an invalid matrix before computing anything', () => {
   const usecase = createStatsUsecase()
   assert.throws(() => usecase.process({ q: [], r: [[1]] }), InvalidMatrixError)
+})
+
+test('process rejects a non-finite value before computing anything', () => {
+  const usecase = createStatsUsecase()
+  assert.throws(() => usecase.process({ q: [[NaN]], r: [[1]] }), InvalidMatrixError)
 })
 
 test('process rejects a matrix over the size limit', () => {

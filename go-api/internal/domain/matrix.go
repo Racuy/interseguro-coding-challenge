@@ -13,13 +13,13 @@ type Matrix [][]float64
 // caps matrix size so QR can't burn unbounded CPU
 const maxMatrixDimension = 500
 
-// empty or non-rectangular matrix
-var ErrInvalidMatrix = errors.New("matrix must be non-empty and rectangular")
+// empty, non-rectangular, or containing a NaN/Infinity value
+var ErrInvalidMatrix = errors.New("matrix must be non-empty, rectangular, and contain only finite values")
 
 // matrix bigger than the size limit
 var ErrMatrixTooLarge = fmt.Errorf("matrix dimensions must not exceed %dx%d", maxMatrixDimension, maxMatrixDimension)
 
-// checks non-empty, rectangular, and within the size limit
+// checks non-empty, rectangular, within the size limit, and every value finite
 func (m Matrix) Validate() error {
 	if len(m) == 0 || len(m[0]) == 0 {
 		return ErrInvalidMatrix
@@ -31,6 +31,11 @@ func (m Matrix) Validate() error {
 	for _, row := range m {
 		if len(row) != cols {
 			return ErrInvalidMatrix
+		}
+		for _, v := range row {
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				return ErrInvalidMatrix
+			}
 		}
 	}
 	return nil
@@ -129,6 +134,18 @@ func (m Matrix) QR() (q, r Matrix) {
 		}
 	}
 
+	// sign convention for a unique decomposition: if R[i][i] < 0, flip Q's column i and R's row i together, Q*R and orthogonality both survive
+	for i := 0; i < steps; i++ {
+		if r[i][i] < 0 {
+			for j := 0; j < cols; j++ {
+				r[i][j] = -r[i][j]
+			}
+			for k := 0; k < rows; k++ {
+				q[k][i] = -q[k][i]
+			}
+		}
+	}
+
 	return q, r
 }
 
@@ -154,17 +171,27 @@ type MatrixRequest struct {
 	Matrix Matrix `json:"matrix"`
 }
 
-// Q and R from the QR decomposition of the rotated matrix
+// Q and R from the QR decomposition of the original (not rotated) matrix
 type QRFactorization struct {
 	Q Matrix `json:"q"`
 	R Matrix `json:"r"`
 }
 
-// what node-api computes over Q and R
+// what node-api computes over Q and R combined
 type MatrixStats struct {
-	Max        float64 `json:"max"`
-	Min        float64 `json:"min"`
-	Average    float64 `json:"average"`
-	Sum        float64 `json:"sum"`
-	IsDiagonal bool    `json:"isDiagonal"`
+	Max              float64  `json:"max"`
+	Min              float64  `json:"min"`
+	Average          float64  `json:"average"`
+	Sum              float64  `json:"sum"`
+	IsDiagonal       bool     `json:"isDiagonal"`
+	DiagonalMatrices []string `json:"diagonalMatrices"`
+}
+
+// everything go-api's own caller gets back: original, rotation, QR factors of the original, and node-api's stats
+type MatrixProcessResult struct {
+	Original Matrix      `json:"original"`
+	Rotated  Matrix      `json:"rotated"`
+	Q        Matrix      `json:"q"`
+	R        Matrix      `json:"r"`
+	Stats    MatrixStats `json:"stats"`
 }

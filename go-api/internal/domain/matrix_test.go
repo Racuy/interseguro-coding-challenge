@@ -42,6 +42,16 @@ func TestMatrix_Validate(t *testing.T) {
 			t.Errorf("got error %v, want ErrMatrixTooLarge", err)
 		}
 	})
+
+	t.Run("non-finite values are rejected", func(t *testing.T) {
+		nonFinite := []float64{math.NaN(), math.Inf(1), math.Inf(-1)}
+		for _, v := range nonFinite {
+			m := Matrix{{1, v}, {2, 3}}
+			if err := m.Validate(); err != ErrInvalidMatrix {
+				t.Errorf("Validate(%v) = %v, want ErrInvalidMatrix", v, err)
+			}
+		}
+	})
 }
 
 func TestMatrix_Rotate90(t *testing.T) {
@@ -203,6 +213,17 @@ func isOrthogonal(t *testing.T, q Matrix) {
 	almostEqualMatrix(t, product, identityMatrix(len(q)), "Q^T * Q should be the identity")
 }
 
+// sign convention: R's diagonal must never be negative, for a unique decomposition
+func hasNonNegativeDiagonal(t *testing.T, r Matrix) {
+	t.Helper()
+	diag := min(len(r), len(r[0]))
+	for i := 0; i < diag; i++ {
+		if r[i][i] < 0 {
+			t.Errorf("R[%d][%d] = %v, want >= 0", i, i, r[i][i])
+		}
+	}
+}
+
 // checks Q orthogonal, R upper triangular, Q*R = original
 func TestMatrix_QR(t *testing.T) {
 	tests := []struct {
@@ -214,8 +235,11 @@ func TestMatrix_QR(t *testing.T) {
 		{"square 3x3", Matrix{{12, -51, 4}, {6, 167, -68}, {-4, 24, -41}}},
 		{"tall (more rows than cols)", Matrix{{1, 2}, {3, 4}, {5, 6}}},
 		{"wide (more cols than rows)", Matrix{{1, 2, 3}, {4, 5, 6}}},
+		{"2x4 rectangular", Matrix{{1, 2, 3, 4}, {5, 6, 7, 8}}},
+		{"4x2 rectangular", Matrix{{1, 2}, {3, 4}, {5, 6}, {7, 8}}},
 		{"identity 3x3", identityMatrix(3)},
 		{"zero column", Matrix{{0, 1}, {0, 2}, {0, 3}}},
+		{"null column in a rectangular matrix", Matrix{{0, 1, 2}, {0, 3, 4}, {0, 5, 6}, {0, 7, 8}}},
 		{"all zeros", Matrix{{0, 0}, {0, 0}}},
 		{"negative values", Matrix{{-1, -2}, {-3, -4}}},
 		{"dependent columns (col2 = 2 * col1)", Matrix{{1, 2}, {2, 4}, {3, 6}}},
@@ -227,6 +251,7 @@ func TestMatrix_QR(t *testing.T) {
 
 			isOrthogonal(t, q)
 			isUpperTriangular(t, r)
+			hasNonNegativeDiagonal(t, r)
 			almostEqualMatrix(t, matMul(q, r), tt.matrix, "Q * R should equal the original matrix")
 		})
 	}
@@ -259,7 +284,35 @@ func TestMatrix_QR_RandomMatrices(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			isOrthogonal(t, q)
 			isUpperTriangular(t, r)
+			hasNonNegativeDiagonal(t, r)
 			almostEqualMatrix(t, matMul(q, r), matrix, name)
 		})
 	}
+}
+
+// sign convention verified on its own, separate from the general QR checks above
+func TestMatrix_QR_NonNegativeDiagonal(t *testing.T) {
+	tests := []Matrix{
+		{{12, -51, 4}, {6, 167, -68}, {-4, 24, -41}},
+		{{-1, -2}, {-3, -4}},
+		{{1.222, 0, 0}, {0, 0, 0}, {0, 0, 1.223}},
+		identityMatrix(3),
+		{{0, 1}, {0, 2}, {0, 3}},
+		{{-5}},
+	}
+
+	for _, m := range tests {
+		_, r := m.QR()
+		hasNonNegativeDiagonal(t, r)
+	}
+}
+
+// hand-verified: for this input, sign normalization collapses Q to the identity and R to diag(1.222, 0, 1.223)
+func TestMatrix_QR_SignConventionHandVerified(t *testing.T) {
+	m := Matrix{{1.222, 0, 0}, {0, 0, 0}, {0, 0, 1.223}}
+	q, r := m.QR()
+
+	wantR := Matrix{{1.222, 0, 0}, {0, 0, 0}, {0, 0, 1.223}}
+	almostEqualMatrix(t, r, wantR, "R should be diag(1.222, 0, 1.223)")
+	almostEqualMatrix(t, q, identityMatrix(3), "Q should be the identity")
 }

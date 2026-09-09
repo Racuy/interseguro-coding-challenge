@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
@@ -30,6 +31,12 @@ func main() {
 
 	app.Use(recover.New())
 	app.Use(logger.New())
+	// the frontend runs on a different origin, so the browser needs this
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET, POST, OPTIONS",
+	}))
 
 	nodeAPIURL := requireEnv("NODE_API_URL")
 	jwtSecret := requireEnv("JWT_SECRET")

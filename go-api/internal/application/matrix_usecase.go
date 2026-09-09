@@ -9,7 +9,7 @@ import (
 
 // what the HTTP controller calls into
 type MatrixUsecase interface {
-	Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixStats, error)
+	Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixProcessResult, error)
 }
 
 // sends the QR result to node-api and gets stats back
@@ -26,19 +26,25 @@ func NewMatrixUsecase(statsGateway StatsGateway) MatrixUsecase {
 	return &matrixUsecase{statsGateway: statsGateway}
 }
 
-// validate, rotate, QR, send to node-api, return stats
-func (u *matrixUsecase) Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixStats, error) {
+// validate, then rotate and QR the original independently (QR never touches the rotated one), send Q/R to node-api, no rounding anywhere here
+func (u *matrixUsecase) Process(ctx context.Context, req domain.MatrixRequest) (domain.MatrixProcessResult, error) {
 	if err := req.Matrix.Validate(); err != nil {
-		return domain.MatrixStats{}, err
+		return domain.MatrixProcessResult{}, err
 	}
 
 	rotated := req.Matrix.Rotate90()
-	q, r := rotated.QR()
+	q, r := req.Matrix.QR()
 
 	stats, err := u.statsGateway.SendForStats(ctx, domain.QRFactorization{Q: q, R: r})
 	if err != nil {
-		return domain.MatrixStats{}, err
+		return domain.MatrixProcessResult{}, err
 	}
 
-	return stats, nil
+	return domain.MatrixProcessResult{
+		Original: req.Matrix,
+		Rotated:  rotated,
+		Q:        q,
+		R:        r,
+		Stats:    stats,
+	}, nil
 }

@@ -16,7 +16,7 @@ import (
 
 func TestNodeStatsGateway_SendForStats(t *testing.T) {
 	t.Run("sends the QR result and decodes the stats", func(t *testing.T) {
-		want := domain.MatrixStats{Max: 9, Min: 1, Average: 5, Sum: 45, IsDiagonal: true}
+		want := domain.MatrixStats{Max: 9, Min: 1, Average: 5, Sum: 45, IsDiagonal: true, DiagonalMatrices: []string{"q"}}
 		input := domain.QRFactorization{
 			Q: [][]float64{{1, 0}, {0, 1}},
 			R: [][]float64{{1, 2}, {0, 3}},
@@ -42,7 +42,7 @@ func TestNodeStatsGateway_SendForStats(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got != want {
+		if !reflect.DeepEqual(got, want) {
 			t.Errorf("stats = %+v, want %+v", got, want)
 		}
 		if gotAuth != "Bearer test-token" {
