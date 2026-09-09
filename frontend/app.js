@@ -1,4 +1,5 @@
-const API_BASE = `http://${window.location.hostname}:8080`
+// config.js sets window.APP_CONFIG.apiBase at container start, falls back to same-host:8080 for local docker compose
+const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.apiBase) || `http://${window.location.hostname}:8080`
 
 let token = null
 let rows = 3
