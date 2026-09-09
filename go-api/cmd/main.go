@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"go-api/internal/application"
+	"go-api/internal/controller/auth"
 	"go-api/internal/controller/gateway"
 	httpController "go-api/internal/controller/http"
 	"go-api/internal/controller/middleware"
@@ -33,13 +34,19 @@ func main() {
 	nodeAPIURL := requireEnv("NODE_API_URL")
 	jwtSecret := requireEnv("JWT_SECRET")
 
+	tokenIssuer := auth.NewJWTIssuer(jwtSecret)
+	authUsecase := application.NewAuthUsecase(tokenIssuer)
+	authHandler := httpController.NewAuthHandler(authUsecase)
+
 	statsGateway := gateway.NewNodeStatsGateway(nodeAPIURL)
 	matrixUsecase := application.NewMatrixUsecase(statsGateway)
 	matrixHandler := httpController.NewMatrixHandler(matrixUsecase)
 
 	api := app.Group("/api/v1")
-	api.Use(middleware.JWTProtected(jwtSecret))
-	httpController.RegisterRoutes(api, matrixHandler)
+	httpController.RegisterAuthRoutes(api, authHandler)
+
+	protected := api.Group("", middleware.JWTProtected(jwtSecret))
+	httpController.RegisterRoutes(protected, matrixHandler)
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendString("ok")

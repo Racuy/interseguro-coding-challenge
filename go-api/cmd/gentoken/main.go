@@ -2,12 +2,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"go-api/internal/controller/auth"
 )
 
 func main() {
@@ -16,13 +16,8 @@ func main() {
 		log.Fatal("JWT_SECRET environment variable is required")
 	}
 
-	claims := jwt.RegisteredClaims{
-		Subject:   "local-test-user",
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-	}
-
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+	issuer := auth.NewJWTIssuer(secret)
+	token, err := issuer.IssueToken(context.Background(), "local-test-user")
 	if err != nil {
 		log.Fatalf("sign token: %v", err)
 	}
